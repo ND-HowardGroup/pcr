@@ -1,0 +1,7 @@
+- update schematic for lower R resistors
+- tune PID control
+- add 3rd party arduino library links
+- make schematics for tube holders
+- bill of parts
+- serial LCD/parallel LCD options
+- document building of device
