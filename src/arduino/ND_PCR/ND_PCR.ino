@@ -17,38 +17,46 @@
    If not, see <http://www.gnu.org/licenses/>.
 */
 
+/* Modified 6/14/2012 by Elizabeth Huschke
+   Code changed to match new hardware in ND PCR Version II
+     -Keypad keymap
+     -LCD serial communication pin
+     -Heater pin
+     -Fan pin
+     -Equations in function readTemps()
+*/
+
 //todo: write function for reused code in settemperature
 //do we need "i" in settemperature? just use millis()
 
-#include <PID_v1.h>
+#include <PID_v1.h> 
 #include <math.h>
-#include <SoftwareSerial.h>
-#include <serLCD.h>
+#include <SoftwareSerial.h> 
+#include <serLCD.h> 
 #include <Keypad.h>
 
-const byte ROWS = 6; //six rows
-const byte COLS = 4; //three columns
+const byte ROWS = 4; //Four rows
+const byte COLS = 3; //Three columns
+//Define the Keymap
 char keys[ROWS][COLS] = {
- {'X','3','2','1'},
- {'X','6','5','4'},
- {'X','9','X','X'},
- {'X','0','8','7'},
- {'*','X','X','X'},
- {'#','X','X','X'},
+  {'1','2','3'},
+  {'4','5','6'},
+  {'7','8','9'},
+  {'*','0','#'}
 };
-byte rowPins[ROWS] = {10, 9, 8, 7, 3, 11}; //connect to the row pinouts of the keypad
-byte colPins[COLS] = {2, 4, 5, 6}; //connect to the column pinouts of the keypad
+byte rowPins[ROWS] = {12, 7, 8, 10 }; //connect to the row pinouts of the keypad
+byte colPins[COLS] = {11, 13, 9 }; //connect to the column pinouts of the keypad
 
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );   
 
 // PCR Temperatures in C, to be set by recipe or user with keypad
 // Presets set in recipeChoice function
-double INITIALIZATION;
-double DENATURATION;
+double INITIALIZATION; //Initialization stage- performed once at beginning of recipe
+double DENATURATION; //Denaturation, anneal, and extension stages repeated many times (NUMBER_OF_CYCLES)
 double ANNEAL;
 double EXTENSION;
-double FINAL_ELONGATION;
-double HOLDT;
+double FINAL_ELONGATION; //Final elongation stage- performed once at end of recipe 
+double HOLDT; //Hold samples at a low temp after recipe is completed
 
 // Number of cycles, input in recipeChoice
 int NUMBER_OF_CYCLES;
@@ -62,22 +70,24 @@ double EXT_TIME;
 double FIN_TIME;
 double HLD_TIME;
 
-// Definie the serial LCD object and communication pin
-int pin = 12;
+// Define the serial LCD object and communication pin
+int pin = 19;
 serLCD lcd(pin);
 
 // core functions
-void recipeChoice();
-void settemperature(double settemp, long settime);
-void printData(double setTemp, int timer);
-void readTemps();
-void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp);
+void recipeChoice(); //Directs user to select a recipe
+void settemperature(double settemp, long settime); //Calls controltemp() to bring temp to a new level, hold it for a set time, calls printData() to display what is happening
+void printData(double setTemp, int timer); // Prints data to LCD screen and serial monitor(time in s, cycle number, set point, and temp)
+void readTemps(); // Reads voltages from thermistor/resistor voltage dividers and calculates temperatures  
+void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp); //Uses PID control with measurements from readTemps to set power to heater and fan
 
 int cycle = 0; //"global" because used by serial print
 
-const int heater = 13;
-const int fan = 0;
+//Define fan and heater pins
+const int heater = 3;
+const int fan = 5;
 
+//Initialize temperatures
 double temp1 = 0;
 double temp2 = 0;
 double temp3 = 0;
@@ -99,13 +109,14 @@ void setup()
 
   recipeChoice();
 
-  // Print headers on LCDh
+  // Print headers on LCD
   lcd.clear();
   lcd.print(" s  cyc sp   T1");
   lcd.selectLine(2);
   
   // Print to Serial Monitor on Laptop
   Serial.print(" s  cyc sp   T1    T2     T3     output");
+  
 
   //turn the PID on
   myPID.SetMode(AUTOMATIC);
@@ -115,7 +126,11 @@ void setup()
 // Change times!
 void loop() 
 {
-  settemperature(INITIALIZATION, INIT_TIME); 
+ 
+
+  settemperature(INITIALIZATION, INIT_TIME); //Run initialization stage
+  
+  //Repeat denaturation, anneal, and extension stages for required number of cycles
   for (int i = 0; i < NUMBER_OF_CYCLES; i++)
   {
     cycle++;
@@ -124,10 +139,11 @@ void loop()
     settemperature(EXTENSION, EXT_TIME);
   }
   cycle++;
-  settemperature(FINAL_ELONGATION, FIN_TIME);
+ 
+  settemperature(FINAL_ELONGATION, FIN_TIME); //Run final elongation stage
   while (1)
   {
-    settemperature(HOLDT, HLD_TIME);
+    settemperature(HOLDT, HLD_TIME); //Hold samples at low temp indefinitely
   } 
 }
 
@@ -229,7 +245,9 @@ void recipeChoice() {
     lcd.selectLine(1);
    // lcd.print("Enter init: ");
     lcd.print("Custom recipe!");
+    lcd.selectLine(2);
     lcd.print("Coming soon...");
+    delay(2000);
     
    // keypad.waitForKey();
    // char init = keypad.getKey();    
@@ -243,22 +261,26 @@ void recipeChoice() {
 
 void settemperature(double settemp, long settime)
 {
-  unsigned long timer, time2, timerinit;
-  timer = millis();
-  timerinit=timer;
+  unsigned long timer, time2, timerinit; 
+  timer = millis(); 
+  timerinit=timer; 
   Setpoint = settemp;
 
-  while (abs(temp1-settemp) > 1.0) //ramp
+  while (abs(temp1-settemp) > 1.0) //ramp temperature
   {
     controltemp(1, timerinit, timer, settemp);
     timer=millis();
-    if(timer>pulse)
+    
+    //Update screen once per second
+    if(timer>pulse) 
     {
       pulse+=1000;
       printData(settemp, 0);
     }
   }
   //digitalWrite(fan, LOW);
+  
+  
   timerinit=timer;
   time2=settime*1000+timerinit;
     
@@ -266,32 +288,38 @@ void settemperature(double settemp, long settime)
   {
     controltemp(1, timerinit, timer, settemp);
     timer=millis();
+    
+    //Update screen once per second
     if(timer>pulse)
     {
       pulse+=1000;
       printData(settemp, (timer-timerinit)/1000.0);
     }
+    
   }
 }
 
 void readTemps() 
 { 
-  double r1, r2, r3;
   int sensorValue1, sensorValue2, sensorValue3;
-  //read all three sensors
+  double r1, r2, r3;
+  
+  //read voltage of sensors (voltage across thermistors)- gives a count value from 0-1023 representing 0-5 V
   sensorValue1 = analogRead(A0);
   delay(1); //delay to prevent excess ringing, from datasheet
-  sensorValue2 = analogRead(A1);
+  sensorValue2 = analogRead(A7);
   delay(1);
-  sensorValue3 = analogRead(A2);
+  //sensorValue3 = analogRead(A2);
   
-  //convert all thermistors from "counts" voltage to C
-  r1 = 2000.0*(1024.0/sensorValue1) - 2000.0;
+  //Calculate resistance of thermistor based on measured voltage in "counts"- equation from layout of voltage divider
+  r1 = 1000.0/((1023.0/sensorValue1) - 1);
+  r2 = 1000.0/((1023.0/sensorValue2) - 1);
+  //r3 = 1000.0/((1023.0/sensorValue1) - 1);
+  
+  //Calculte temperatures in degrees C- standard thermistor equation with values from thermistor datasheet
   temp1 = 3560.0/log(r1/0.0130444106) - 273.15;
-  r2 = 2000.0*(1024.0/sensorValue2) - 2000.0;
   temp2 = 3560.0/log(r2/0.0130444106) - 273.15;
-  r3 = 2000.0*(1024.0/sensorValue3) - 2000.0;
-  temp3 = 3560.0/log(r3/0.0130444106) - 273.15;
+  //temp3 = 3560.0/log(r3/0.0130444106) - 273.15;
 }
 
 
@@ -300,7 +328,7 @@ void printData(double setTemp, int timer)
 {
     char buff[17];
     
-    sprintf(buff, "%4.d %2.d ", millis()/1000, cycle);
+    sprintf(buff, "%4.d %2.d ", millis()/1000, cycle); //Format LCD screen
     
     // Prints out the time in seconds, and the cycle number (always on line 2)
     lcd.selectLine(2);
@@ -328,13 +356,18 @@ void printData(double setTemp, int timer)
 void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp)
 {
   readTemps();
-  if (fan_on && temp1>settemp+1)
+  if (fan_on && temp1>settemp+1) //Turn fan on if temp needs to be lowered, else fan is off
   {
     digitalWrite(fan, HIGH);
   } else digitalWrite(fan, LOW);
+  
   //display to serial monitor
   Input = temp1;
-  myPID.Compute();
+  
+  myPID.Compute(); //Compute optimal heater voltage level with PID controller
+  
   //analogWrite(heater, (settemp-temp1)*3);
-  analogWrite(heater, Output);
+  
+  analogWrite(heater, Output); //Set heater to PID-specified output
 }
+
