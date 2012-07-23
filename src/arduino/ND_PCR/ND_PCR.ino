@@ -90,7 +90,7 @@ const int fan = 5;
 //Initialize temperatures
 double temp1 = 0;
 double temp2 = 0;
-double temp3 = 0;
+double temp = 0;
 
 unsigned long pulse=0; //will output every one sec
 
@@ -100,6 +100,7 @@ double Setpoint, Input, Output;
 //Specify the links and initial tuning parameters, also do so in
 //loop() with SetTunings
 PID myPID(&Input, &Output, &Setpoint,33.29,1,277, DIRECT);
+
 
 void setup() 
 {
@@ -301,25 +302,22 @@ void settemperature(double settemp, long settime)
 
 void readTemps() 
 { 
-  int sensorValue1, sensorValue2, sensorValue3;
-  double r1, r2, r3;
+  int sensorValue1, sensorValue2;
+  double r1, r2;
   
   //read voltage of sensors (voltage across thermistors)- gives a count value from 0-1023 representing 0-5 V
   sensorValue1 = analogRead(A0);
   delay(1); //delay to prevent excess ringing, from datasheet
   sensorValue2 = analogRead(A7);
-  delay(1);
-  //sensorValue3 = analogRead(A2);
   
   //Calculate resistance of thermistor based on measured voltage in "counts"- equation from layout of voltage divider
   r1 = 1000.0/((1023.0/sensorValue1) - 1);
   r2 = 1000.0/((1023.0/sensorValue2) - 1);
-  //r3 = 1000.0/((1023.0/sensorValue1) - 1);
   
   //Calculte temperatures in degrees C- standard thermistor equation with values from thermistor datasheet
   temp1 = 3560.0/log(r1/0.0130444106) - 273.15;
   temp2 = 3560.0/log(r2/0.0130444106) - 273.15;
-  //temp3 = 3560.0/log(r3/0.0130444106) - 273.15;
+  temp = (temp1+temp2)/2;
 }
 
 
@@ -347,8 +345,6 @@ void printData(double setTemp, int timer)
     Serial.print(temp1);
     Serial.print("  ");
     Serial.print(temp2); 
-    Serial.print("  "); 
-    Serial.print(temp3);
     Serial.print("   ");
     Serial.print(Output);  
 }
@@ -356,15 +352,20 @@ void printData(double setTemp, int timer)
 void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp)
 {
   readTemps();
-  if (fan_on && temp1>settemp+1) //Turn fan on if temp needs to be lowered, else fan is off
+  /*if (fan_on && temp1>settemp+1) //Turn fan on if temp needs to be lowered, else fan is off
   {
     digitalWrite(fan, HIGH);
   } else digitalWrite(fan, LOW);
-  
+  */
   //display to serial monitor
-  Input = temp1;
+  Input = temp;
   
   myPID.Compute(); //Compute optimal heater voltage level with PID controller
+  
+  if(Output < 10){
+    digitalWrite(fan, HIGH);
+    Output = 0;
+  }
   
   //analogWrite(heater, (settemp-temp1)*3);
   
