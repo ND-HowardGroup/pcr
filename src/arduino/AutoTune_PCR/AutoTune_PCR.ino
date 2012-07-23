@@ -21,6 +21,7 @@ unsigned int aTuneLookBack=20;
 boolean tuning = true;
 unsigned long  modelTime, serialTime;
 
+void readTemps(); // Reads voltages from thermistor/resistor voltage dividers and calculates temperatures
 PID myPID(&input, &output, &setpoint,kp,ki,kd, DIRECT);
 PID_ATune aTune(&input, &output);
 
@@ -31,6 +32,11 @@ boolean useSimulation = false;
 const int heater=3;
 const int fan = 5;
 
+//Initialize temperatures
+double temp1 = 0;
+double temp2 = 0;
+double temp = 0;
+
 void setup()
 {
   double sensorValue1;
@@ -38,7 +44,7 @@ void setup()
   double temp;
   pinMode(heater, OUTPUT);
   pinMode(fan, OUTPUT);
-  //digitalWrite(2,HIGH);
+
   aTune.SetControlType(1);//set for PID extraction instead of PI
   if(useSimulation)
   {
@@ -63,14 +69,12 @@ void setup()
 
   if(!useSimulation)
   { //pull the input in from the real world
-    sensorValue1 = analogRead(0);
-    r1 = 1000.0/((1023.0/sensorValue1)-1);
-    temp = 3560.0/log(r1/0.0130444106) - 273.15;
+
+    readTemps();
     digitalWrite(heater,HIGH);
+    
     while(temp<setpoint){
-      sensorValue1 = analogRead(0);
-      r1 = 1000.0/((1023.0/sensorValue1)-1);
-      temp = 3560.0/log(r1/0.0130444106) - 273.15;
+      readTemps();
       Serial.print(temp);Serial.println();
     }
     digitalWrite(heater,LOW);
@@ -80,16 +84,11 @@ void setup()
 
 void loop()
 {
-  double sensorValue1;
-  double r1;
-
   unsigned long now = millis();
 
   if(!useSimulation)
   { //pull the input in from the real world
-    sensorValue1 = analogRead(0);
-    r1 = 1000.0/((1023.0/sensorValue1)-1);
-    input = 3560.0/log(r1/0.0130444106) - 273.15;
+    readTemps();
   }
   
   if(tuning)
@@ -210,4 +209,24 @@ void DoModel()
   //compute the input
   input = (kpmodel / taup) *(theta[0]-outputStart) + input*(1-1/taup) + ((float)random(-10,10))/100;
 
+}
+
+void readTemps() 
+{ 
+  int sensorValue1, sensorValue2;
+  double r1, r2;
+  
+  //read voltage of sensors (voltage across thermistors)- gives a count value from 0-1023 representing 0-5 V
+  sensorValue1 = analogRead(A0);
+  delay(1); //delay to prevent excess ringing, from datasheet
+  sensorValue2 = analogRead(A7);
+  
+  //Calculate resistance of thermistor based on measured voltage in "counts"- equation from layout of voltage divider
+  r1 = 1000.0/((1023.0/sensorValue1) - 1);
+  r2 = 1000.0/((1023.0/sensorValue2) - 1);
+  
+  //Calculte temperatures in degrees C- standard thermistor equation with values from thermistor datasheet
+  temp1 = 3560.0/log(r1/0.0130444106) - 273.15;
+  temp2 = 3560.0/log(r2/0.0130444106) - 273.15;
+  temp = (temp1+temp2)/2;
 }
