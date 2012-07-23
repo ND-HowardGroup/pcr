@@ -99,7 +99,7 @@ double Setpoint, Input, Output;
 
 //Specify the links and initial tuning parameters, also do so in
 //loop() with SetTunings
-PID myPID(&Input, &Output, &Setpoint,33.29,1,277, DIRECT);
+PID myPID(&Input, &Output, &Setpoint,33.2,1,277, DIRECT);
 
 
 void setup() 
@@ -116,7 +116,7 @@ void setup()
   lcd.selectLine(2);
   
   // Print to Serial Monitor on Laptop
-  Serial.print(" s  cyc sp   T1    T2     T3     output");
+  Serial.print(" s  cyc sp   T1    T2     output");
   
 
   //turn the PID on
@@ -352,20 +352,20 @@ void printData(double setTemp, int timer)
 void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp)
 {
   readTemps();
-  /*if (fan_on && temp1>settemp+1) //Turn fan on if temp needs to be lowered, else fan is off
+  if (fan_on && temp1>settemp+1) //Turn fan on if temp needs to be lowered, else fan is off
   {
     digitalWrite(fan, HIGH);
   } else digitalWrite(fan, LOW);
-  */
+  
   //display to serial monitor
   Input = temp;
   
   myPID.Compute(); //Compute optimal heater voltage level with PID controller
-  
+  /*
   if(Output < 10){
     digitalWrite(fan, HIGH);
     Output = 0;
-  }
+  }*/
   
   //analogWrite(heater, (settemp-temp1)*3);
   
