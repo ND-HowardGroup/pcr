@@ -113,7 +113,7 @@ void setup()
 
   // Print headers on LCD
   lcd.clear();
-  lcd.print(" s  cyc sp   T°");
+  lcd.print(" s  cyc sp   T");
   lcd.selectLine(2);
   
   // Print to Serial Monitor on Laptop
