@@ -99,7 +99,8 @@ double Setpoint, Input, Output;
 
 //Specify the links and initial tuning parameters, also do so in
 //loop() with SetTunings
-PID myPID(&Input, &Output, &Setpoint,33.2,1,277, DIRECT);
+//PID myPID(&Input, &Output, &Setpoint,33.2,1,277, DIRECT);
+PID myPID(&Input, &Output, &Setpoint,33.01,0.35,120.55, DIRECT);
 
 
 void setup() 

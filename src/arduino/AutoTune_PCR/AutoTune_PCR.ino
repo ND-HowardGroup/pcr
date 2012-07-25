@@ -86,6 +86,7 @@ void loop()
   if(!useSimulation)
   { //pull the input in from the real world
     readTemps();
+    input=temp;
   }
   
   if(tuning)
