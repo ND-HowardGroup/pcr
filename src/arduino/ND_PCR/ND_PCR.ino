@@ -112,7 +112,7 @@ void setup()
 
   // Print headers on LCD
   lcd.clear();
-  lcd.print(" s  cyc sp   T1");
+  lcd.print(" s  cyc sp   T°");
   lcd.selectLine(2);
   
   // Print to Serial Monitor on Laptop
@@ -267,7 +267,7 @@ void settemperature(double settemp, long settime)
   timerinit=timer; 
   Setpoint = settemp;
 
-  while (abs(temp1-settemp) > 1.0) //ramp temperature
+  while (abs(temp-settemp) > 1.0) //ramp temperature
   {
     controltemp(1, timerinit, timer, settemp);
     timer=millis();
@@ -333,7 +333,7 @@ void printData(double setTemp, int timer)
     lcd.print(buff);
     lcd.print(int(setTemp));
     lcd.print(" ");
-    lcd.print(temp1);
+    lcd.print(temp);
     
     // Print to serial monitor as well
     Serial.println();
@@ -352,7 +352,7 @@ void printData(double setTemp, int timer)
 void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp)
 {
   readTemps();
-  if (fan_on && temp1>settemp+1) //Turn fan on if temp needs to be lowered, else fan is off
+  if (fan_on && temp>settemp+1) //Turn fan on if temp needs to be lowered, else fan is off
   {
     digitalWrite(fan, HIGH);
   } else digitalWrite(fan, LOW);
