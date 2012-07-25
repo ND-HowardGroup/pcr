@@ -39,9 +39,6 @@ double temp = 0;
 
 void setup()
 {
-  double sensorValue1;
-  double r1;
-  double temp;
   pinMode(heater, OUTPUT);
   pinMode(fan, OUTPUT);
 
@@ -130,6 +127,7 @@ void loop()
 //       analogWrite(fan,(127-output)*2);
 //       //Serial.print("fan ");Serial.print((127-output)*2);Serial.println();
 //     }
+
      analogWrite(heater,output);
      if(input>setpoint+1){
        digitalWrite(fan,HIGH);
@@ -228,5 +226,5 @@ void readTemps()
   //Calculte temperatures in degrees C- standard thermistor equation with values from thermistor datasheet
   temp1 = 3560.0/log(r1/0.0130444106) - 273.15;
   temp2 = 3560.0/log(r2/0.0130444106) - 273.15;
-  temp = (temp1+temp2)/2;
+  temp = (temp1+temp2)/2.0;
 }
