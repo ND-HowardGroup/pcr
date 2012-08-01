@@ -177,20 +177,20 @@ void recipeChoice() {
     // Set presets here
     if(c2 == '1') {
       // Edit these fields to change recipe
-      INITIALIZATION = 95;
-      DENATURATION = 95;
-      ANNEAL = 55;
+      INITIALIZATION = 94;
+      DENATURATION = 94;
+      ANNEAL = 50;
       EXTENSION = 72;
       FINAL_ELONGATION = 72;
       HOLDT = 10;
-      NUMBER_OF_CYCLES = 30;
+      NUMBER_OF_CYCLES = 35;
       
       // Change timing, set in seconds
-      INIT_TIME = 30;
+      INIT_TIME = 120;
       DENAT_TIME = 30;
       ANNL_TIME = 60;
-      EXT_TIME = 60;
-      FIN_TIME = 300;
+      EXT_TIME = 120;
+      FIN_TIME = 600;
       HLD_TIME = 20;
       
       lcd.clear();
