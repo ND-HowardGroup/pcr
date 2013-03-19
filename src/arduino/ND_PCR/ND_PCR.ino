@@ -7,6 +7,8 @@
  Alex Toombs
  Elizabeth Hunschke    
  
+ Date Last Modified:  3/19/2013
+ 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
@@ -147,11 +149,11 @@ void setup()
 
   // Print headers on LCD
   lcd.clear();
-  lcd.print("min left    T");
+  lcd.print("min_left    T");
   lcd.selectLine(2);
 
   // Print to Serial Monitor on Laptop
-  Serial.print(" s  cyc sp   T1    T2    output");
+  Serial.print(" s  cyc sp   T1    T2   output  time_rem");
 
   //turn the PID on
   myPID.SetMode(AUTOMATIC);
@@ -221,8 +223,8 @@ void recipeChoice() {
 
   // Welcome message displayed
   delay(1000);
-  lcd.print("Welcome: NDPCR");
-  delay(1000);
+  lcd.print("Welcome to NDPCR");
+  delay(2000);
   lcd.clear();
   lcd.clear();
   lcd.selectLine(1);
@@ -280,24 +282,25 @@ void recipeChoice() {
   }
   else if(c2 == '3') {
     // Edit these fields to change recipe
-    INITIALIZATION = 97;
-    DENATURATION = 97;
-    ANNEAL = 52;
-    EXTENSION = 74;
-    FINAL_ELONGATION = 68;
+    // This recipe currently used to test lcd display
+    INITIALIZATION = 35;
+    DENATURATION = 30;
+    ANNEAL = 25;
+    EXTENSION = 27;
+    FINAL_ELONGATION = 27;
     HOLDT = 12;
-    NUMBER_OF_CYCLES = 45;
+    NUMBER_OF_CYCLES = 5;
 
     // Change timing, set in seconds
-    INIT_TIME = 30;
-    DENAT_TIME = 30;
-    ANNL_TIME = 60;
-    EXT_TIME = 60;
-    FIN_TIME = 300;
-    HLD_TIME = 20;
+    INIT_TIME = 10;
+    DENAT_TIME = 10;
+    ANNL_TIME = 10;
+    EXT_TIME = 5;
+    FIN_TIME = 5;
+    HLD_TIME = 5;
 
     lcd.clear();
-    lcd.print("Rcp 3 Chosen");
+    lcd.print("Test RCP!");
     delay(500);
   }
 }
@@ -380,25 +383,29 @@ void printData(double setTemp, int timer)
   // buffered charString that contains data printed to LCD
   sprintf(buff, "%3.d ", calcTimeRemaining());
 
-  // Prints out the time in seconds, and the cycle number (always on line 2)
+  // Prints out time remaining in minutes and current averaged temp (always on line 2)
   lcd.selectLine(2);
   lcd.print(buff);
-  lcd.print(" ");
+  lcd.print("     ");
   lcd.print(temp);
 
   // Print to serial monitor as well
   // Appearance:  ## ##.## ##.## ##.##
   Serial.println();
+  Serial.println();
   Serial.print(buff);
+  Serial.print("   ");
   Serial.print(int(setTemp));
 
-  Serial.print(" ");
+  Serial.print("   ");
 
   Serial.print(temp1);
-  Serial.print("  ");
+  Serial.print("      ");
   Serial.print(temp2); 
-  Serial.print("  "); 
-  Serial.print(Output);  
+  Serial.print("     "); 
+  Serial.print(Output);
+  Serial.print("     ");
+  Serial.print(calcTimeRemaining());  
 }
 
 // Control temperature by calculating PID and turning fan on or off.
@@ -432,13 +439,14 @@ int calcTimeRemaining() {
   // total process time in seconds, excluding ramp times
   int totTime = INIT_TIME + (NUMBER_OF_CYCLES * (DENAT_TIME + ANNL_TIME + EXT_TIME)) + (FIN_TIME + HLD_TIME);
 
-  // Calculate average step time in seconds (assuming constant for now)
-  int avgStepTime = 7;
+  // "fudge factor" for ramp times, etc.; needs to be more elegant later
+  int fudgeFactor = totTime*.07;
 
   // Calculate final time
-  int totalTime = (3 * NUMBER_OF_CYCLES + 2) * avgStepTime;
+  int totalTime = totTime + fudgeFactor;
 
-  return (totalTime - (millis()/1000 + 10))/60;
+  // returns time remaining in minutes as an integer
+  return (totalTime - (millis()/1000))/60;
 }
 
 
