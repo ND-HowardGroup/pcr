@@ -1,62 +1,70 @@
 /* PersonalPCR, code for Arduino based PCR
-   Copyright (C) 2011 Chris Templeman <templemanautomation.com>
-                 2012 Scott Howard <showard@nd.edu>
+ Copyright (C) 2011 Chris Templeman <templemanautomation.com>
+ 2012 Scott Howard <showard@nd.edu>
+ 
+ Authors:  Chris Templeman
+ Matt Brittan
+ Alex Toombs
+ Elizabeth Hunschke    
+ 
+ Date Last Modified:  3/19/2013
+ 
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ 
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ 
+ You should have received a copy of the GNU General Public License
+ along with this program.  
+ If not, see <http://www.gnu.org/licenses/>.
+ */
 
-   This program is free software: you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program.  
-   If not, see <http://www.gnu.org/licenses/>.
-*/
-
-/* Modified 6/14/2012 by Elizabeth Huschke
-   Code changed to match new hardware in ND PCR Version II
-     -Keypad keymap
-     -LCD serial communication pin
-     -Heater pin
-     -Fan pin
-     -Equations in function readTemps()
-*/
-
-//todo: write function for reused code in settemperature
-//do we need "i" in settemperature? just use millis()
-
-#include <PID_v1.h> 
+#include <PID_v1.h>
 #include <math.h>
-#include <SoftwareSerial.h> 
-#include <serLCD.h> 
+#include <SoftwareSerial.h>
+#include <serLCD.h>
 #include <Keypad.h>
 
-const byte ROWS = 4; //Four rows
-const byte COLS = 3; //Three columns
+//Four rows
+const byte ROWS = 4;
+//Three columns
+const byte COLS = 3;
 //Define the Keymap
 char keys[ROWS][COLS] = {
-  {'1','2','3'},
-  {'4','5','6'},
-  {'7','8','9'},
-  {'*','0','#'}
+  {
+    '1','2','3'      }
+  ,
+  {
+    '4','5','6'      }
+  ,
+  {
+    '7','8','9'      }
+  ,
+  {
+    '*','0','#'      }
 };
-byte rowPins[ROWS] = {12, 7, 8, 10 }; //connect to the row pinouts of the keypad
-byte colPins[COLS] = {11, 13, 9 }; //connect to the column pinouts of the keypad
+//connect to the row pinouts of the keypad
+byte rowPins[ROWS] = {
+  12, 7, 8, 10 };
+//connect to the column pinouts of the keypad
+byte colPins[COLS] = {
+  11, 13, 9 };
 
 Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );   
 
 // PCR Temperatures in C, to be set by recipe or user with keypad
 // Presets set in recipeChoice function
-double INITIALIZATION; //Initialization stage- performed once at beginning of recipe
-double DENATURATION; //Denaturation, anneal, and extension stages repeated many times (NUMBER_OF_CYCLES)
+double INITIALIZATION;
+double DENATURATION;
 double ANNEAL;
 double EXTENSION;
-double FINAL_ELONGATION; //Final elongation stage- performed once at end of recipe 
-double HOLDT; //Hold samples at a low temp after recipe is completed
+double FINAL_ELONGATION;
+double HOLDT;
 
 // Number of cycles, input in recipeChoice
 int NUMBER_OF_CYCLES;
@@ -70,306 +78,376 @@ double EXT_TIME;
 double FIN_TIME;
 double HLD_TIME;
 
-// Define the serial LCD object and communication pin
-int pin = 19;
+// Definie the serial LCD object and communication pin
+const int pin = 19;
 serLCD lcd(pin);
 
-// core functions
-void recipeChoice(); //Directs user to select a recipe
-void settemperature(double settemp, long settime); //Calls controltemp() to bring temp to a new level, hold it for a set time, calls printData() to display what is happening
-void printData(double setTemp, int timer); // Prints data to LCD screen and serial monitor(time in s, cycle number, set point, and temp)
-void readTemps(); // Reads voltages from thermistor/resistor voltage dividers and calculates temperatures  
-void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp); //Uses PID control with measurements from readTemps to set power to heater and fan
+// core function protoypes
+// Directs user to select a recipe
+void recipeChoice();
+// Calls controltemp() to bring temp to a new level, hold it for a set time, calls printData() to display what is happening
+void settemperature(double settemp, long settime);
+// Prints data to LCD screen and serial monitor (time remaining in minutes, current temp)
+void printData(double setTemp, int timer);
+// Reads voltages from thermistor/resistor voltage dividers and calculates temperatures
+void readTemps();
+// Uses PID control with measurements from readTemps to set power to heater and fan
+void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp);
 
+// track number of cycles
 int cycle = 0; //"global" because used by serial print
 
-//Define fan and heater pins
+// heater, fan, and buzzer pins
 const int heater = 3;
 const int fan = 5;
+//const int buzzer = *********************
 
-//Initialize temperatures
+// temperature for heater 1
 double temp1 = 0;
+// temperature for heater 2
 double temp2 = 0;
+// averaged temps
 double temp = 0;
 
-unsigned long pulse=0; //will output every one sec
+// will output every one sec
+unsigned long pulse=0;
 
-//Define Variables we'll be connecting to
+// Define PID variables we'll be connecting to
 double Setpoint, Input, Output;
 
 //Specify the links and initial tuning parameters, also do so in
 //loop() with SetTunings
-//PID myPID(&Input, &Output, &Setpoint,33.2,1,277, DIRECT);
+// tunings are setup and material specific
 PID myPID(&Input, &Output, &Setpoint,33.01,0.35,120.55, DIRECT);
 
-
+// Set up variables, recipe choice, and headers
 void setup() 
 {
+  // Begin serial communication at 9600 baud
   Serial.begin(9600);
+  // set output pins to output
   pinMode(heater, OUTPUT);
   pinMode(fan, OUTPUT);
 
+  // Get recipe to control cycle
   recipeChoice();
+
+  // print delay message until heaters are at INITIALIZATION point
+  while(temp > INITIALIZATION) {
+    lcd.selectLine(1);
+    lcd.print("WAIT FOR HEATERS");
+  }
+  
+  // after heats are heated, wait for input before starting recipe
+  lcd.clear();
+  lcd.selectLine(1);
+  lcd.print("Load vials");
+  lcd.selectLine(2);
+  lcd.print("Hit 1 to start");
+  // wait until any key is pressed.
+  keypad.waitForKey();
 
   // Print headers on LCD
   lcd.clear();
-  lcd.print(" s  cyc sp   T");
+  lcd.print("min_left    T");
   lcd.selectLine(2);
-  
+
   // Print to Serial Monitor on Laptop
-  Serial.print(" s  cyc sp   T1    T2     output");
-  
+  Serial.print(" s  cyc sp   T1    T2   output  time_rem");
 
   //turn the PID on
   myPID.SetMode(AUTOMATIC);
- 
+
 }
 
-// Change times!
+// Doesn't actually loop like it's supposed to.  This will only loop once, in theory
 void loop() 
 {
- 
+  // Set the temperature to remain at INITIALIZATION for INIT_TIME seconds
+  settemperature(INITIALIZATION, INIT_TIME); 
 
-  settemperature(INITIALIZATION, INIT_TIME); //Run initialization stage
-  
-  //Repeat denaturation, anneal, and extension stages for required number of cycles
+  // Loop for PCR recipe while current cycles is less than total number of cycles, as specified in recipe
+  // Real loop is here!
   for (int i = 0; i < NUMBER_OF_CYCLES; i++)
   {
+    // increment cycle
     cycle++;
+
+    // step through each step of process
     settemperature(DENATURATION, DENAT_TIME);
     settemperature(ANNEAL, ANNL_TIME);
     settemperature(EXTENSION, EXT_TIME);
   }
   cycle++;
- 
-  settemperature(FINAL_ELONGATION, FIN_TIME); //Run final elongation stage
-  while (1)
-  {
-    settemperature(HOLDT, HLD_TIME); //Hold samples at low temp indefinitely
-  } 
+
+  // PCR process loop ended; elongating, holding, then buzzing
+
+  // Final 
+  settemperature(FINAL_ELONGATION, FIN_TIME);
+  // Hold at HOLD_TEMPERATURE for a long time
+  settemperature(HOLDT, HLD_TIME);
+
+  // Play buzzer until button hit, as PCR is done, tubes should be removed
+  lcd.clear();
+  lcd.selectLine(1);
+  lcd.print("REMOVE VIALS!");
+  lcd.selectLine(2);
+  lcd.print("Hit Key For End");
+
+  // play annoying buzzer until they hit a key to alert for vial removal     
+  //digitalWrite(buzzer, HIGH);
+
+  // buzzer should plan until a key is pressed
+  keypad.waitForKey();
+  //digitalWrite(buzzer, LOW);
+
+  lcd.clear();
+
+  // display end message, loop infinitely
+  while(1) {
+    lcd.selectLine(1);
+    lcd.print("Fridge vials!");
+    lcd.selectLine(2);
+    lcd.print("Run complete.");
+    
+    // delay to prevent flicker
+    delay(500);
+  }
 }
 
-// Either choose a preset recipe for temperatures, or create custom
+// Either choose a preset recipe for temperatures
 void recipeChoice() {
   // Clear LCD, select line 1
   lcd.clear();
   lcd.selectLine(1);
-  
-  // Determine if prests or custom wanted
-  lcd.print("1 for preset");
+
+  // Welcome message displayed
+  delay(1000);
+  lcd.print("Welcome to NDPCR");
+  delay(2000);
+  lcd.clear();
+  lcd.clear();
+  lcd.selectLine(1);
+  lcd.print("Enter choice:");
   lcd.selectLine(2);
-  lcd.print("2 for custom");
-  
-  // Wait for first key press, get first key press c1
-  char c1 = keypad.waitForKey();
-  Serial.println(c1);
-  
-  // If c1 is 1, show presets; gets preset choice c2 ( 1 thru 3 )
-  if(c1 == '1') {
+  lcd.print("(1 thru 3)");
+
+  // Recipe choice input (char digit)
+  char c2 = keypad.waitForKey();
+
+  // Sets recipes, can be 0-9, # and * as chars (up to 12 recipes stored)
+  if(c2 == '1') {
+    // Edit these fields to change recipe
+    INITIALIZATION = 95;
+    DENATURATION = 95;
+    ANNEAL = 55;
+    EXTENSION = 72;
+    FINAL_ELONGATION = 72;
+    HOLDT = 10;
+    NUMBER_OF_CYCLES = 35;
+
+    // Change timing, set in seconds
+    INIT_TIME = 30;
+    DENAT_TIME = 30;
+    ANNL_TIME = 60;
+    EXT_TIME = 60;
+    FIN_TIME = 300;
+    HLD_TIME = 20;
+
     lcd.clear();
-    lcd.selectLine(1);
-    lcd.print("Enter choice:");
-    lcd.selectLine(2);
-    lcd.print("(1 thru 3)");
-    
-    char c2 = keypad.waitForKey();
-    
-    // Set presets here
-    if(c2 == '1') {
-      // Edit these fields to change recipe
-      INITIALIZATION = 94;
-      DENATURATION = 94;
-      ANNEAL = 50;
-      EXTENSION = 72;
-      FINAL_ELONGATION = 72;
-      HOLDT = 10;
-      NUMBER_OF_CYCLES = 35;
-      
-      // Change timing, set in seconds
-      INIT_TIME = 120;
-      DENAT_TIME = 30;
-      ANNL_TIME = 60;
-      EXT_TIME = 120;
-      FIN_TIME = 600;
-      HLD_TIME = 20;
-      
-      lcd.clear();
-      lcd.print("Preset 1 selected.");
-      delay(1000);
-    }
-    else if(c2 == '2') {
-       // Edit these fields to change recipe
-      INITIALIZATION = 90;
-      DENATURATION = 96;
-      ANNEAL = 50;
-      EXTENSION = 74;
-      FINAL_ELONGATION = 73;
-      HOLDT = 12;
-      NUMBER_OF_CYCLES = 20;
-      
-      // Change timing, set in seconds
-      INIT_TIME = 30;
-      DENAT_TIME = 30;
-      ANNL_TIME = 60;
-      EXT_TIME = 60;
-      FIN_TIME = 300;
-      HLD_TIME = 20;      
-      
-      lcd.clear();
-      lcd.print("Preset 2 selected.");
-      delay(1000);
-    }
-     else if(c2 == '3') {
-      // Edit these fields to change recipe
-      INITIALIZATION = 97;
-      DENATURATION = 97;
-      ANNEAL = 52;
-      EXTENSION = 74;
-      FINAL_ELONGATION = 68;
-      HOLDT = 12;
-      NUMBER_OF_CYCLES = 45;
-      
-      // Change timing, set in seconds
-      INIT_TIME = 30;
-      DENAT_TIME = 30;
-      ANNL_TIME = 60;
-      EXT_TIME = 60;
-      FIN_TIME = 300;
-      HLD_TIME = 20;
-        
-      lcd.clear();
-      lcd.print("Preset 3 selected.");
-      delay(1000);
-    }
+    lcd.print("Rcp 1 Chosen");
+    delay(500);
   }
-  else if(c1 == '2') {
+  else if(c2 == '2') {
+    // Edit these fields to change recipe
+    INITIALIZATION = 90;
+    DENATURATION = 96;
+    ANNEAL = 50;
+    EXTENSION = 74;
+    FINAL_ELONGATION = 73;
+    HOLDT = 12;
+    NUMBER_OF_CYCLES = 20;
+
+    // Change timing, set in seconds
+    INIT_TIME = 30;
+    DENAT_TIME = 30;
+    ANNL_TIME = 60;
+    EXT_TIME = 60;
+    FIN_TIME = 300;
+    HLD_TIME = 20;      
+
     lcd.clear();
-    lcd.selectLine(1);
-   // lcd.print("Enter init: ");
-    lcd.print("Custom recipe!");
-    lcd.selectLine(2);
-    lcd.print("Coming soon...");
-    delay(2000);
-    
-   // keypad.waitForKey();
-   // char init = keypad.getKey();    
+    lcd.print("Rcp 2 Chosen");
+    delay(500);
   }
-  else {
+  else if(c2 == '3') {
+    // Edit these fields to change recipe
+    // This recipe currently used to test lcd display
+    INITIALIZATION = 35;
+    DENATURATION = 30;
+    ANNEAL = 25;
+    EXTENSION = 27;
+    FINAL_ELONGATION = 27;
+    HOLDT = 12;
+    NUMBER_OF_CYCLES = 5;
+
+    // Change timing, set in seconds
+    INIT_TIME = 10;
+    DENAT_TIME = 10;
+    ANNL_TIME = 10;
+    EXT_TIME = 5;
+    FIN_TIME = 5;
+    HLD_TIME = 5;
+
     lcd.clear();
-    lcd.print("Bad choice");
-    delay(2500);
-  }  
+    lcd.print("Test RCP!");
+    delay(500);
+  }
 }
 
+// Set temperature of heaters
 void settemperature(double settemp, long settime)
 {
-  unsigned long timer, time2, timerinit; 
-  timer = millis(); 
-  timerinit=timer; 
+  unsigned long timer, time2, timerinit;
+  timer = millis();
+  timerinit=timer;
   Setpoint = settemp;
 
-  while (abs(temp-settemp) > 1.0) //ramp temperature
+  // while temperature is off from settemp, keep looping
+  while (abs(temp-settemp) > 1.0)
   {
+    // control PID and fan with other function
     controltemp(1, timerinit, timer, settemp);
+
+    // get current time in ms
     timer=millis();
-    
-    //Update screen once per second
-    if(timer>pulse) 
+
+    // print to screen every second
+    if(timer>pulse)
     {
+      // increment by 1 second
       pulse+=1000;
+
+      // output to screen
       printData(settemp, 0);
     }
   }
-  //digitalWrite(fan, LOW);
-  
-  
+
+  // Grabs time to control step duration
   timerinit=timer;
   time2=settime*1000+timerinit;
-    
-  while (timer < time2) //hold at temperature
+
+  // Hold at temperature while at current step  
+  while (timer < time2)
   {
+    // control PID output and fan on/off by using controltemp function
     controltemp(1, timerinit, timer, settemp);
+
+    // Every second, output to screen
     timer=millis();
-    
-    //Update screen once per second
     if(timer>pulse)
     {
       pulse+=1000;
+      // print data to LCD/serial monitor
       printData(settemp, (timer-timerinit)/1000.0);
     }
-    
   }
 }
 
+// read temperatures from digital temperature sensors on aluminum block
 void readTemps() 
 { 
-  int sensorValue1, sensorValue2;
   double r1, r2;
-  
-  //read voltage of sensors (voltage across thermistors)- gives a count value from 0-1023 representing 0-5 V
+  int sensorValue1, sensorValue2;
+  //read all three sensors
   sensorValue1 = analogRead(A0);
   delay(1); //delay to prevent excess ringing, from datasheet
   sensorValue2 = analogRead(A7);
-  
-  //Calculate resistance of thermistor based on measured voltage in "counts"- equation from layout of voltage divider
+
+  //convert all thermistors from "counts" voltage to C
   r1 = 1000.0/((1023.0/sensorValue1) - 1);
-  r2 = 1000.0/((1023.0/sensorValue2) - 1);
-  
-  //Calculte temperatures in degrees C- standard thermistor equation with values from thermistor datasheet
   temp1 = 3560.0/log(r1/0.0130444106) - 273.15;
+  r2 = 1000.0/((1023.0/sensorValue2) - 1);
   temp2 = 3560.0/log(r2/0.0130444106) - 273.15;
-  temp = (temp1+temp2)/2;
+
+  // Average temperatures of two sensors to control fan and PID
+  temp = (temp1 + temp2) / 2;
 }
 
 
-// NEW:  try only setting buffer for seconds, lcd.print for the rest
+// displays data to LCD monitor and serial monitor
 void printData(double setTemp, int timer)
 {
-    char buff[17];
-    
-    sprintf(buff, "%4.d %2.d ", millis()/1000, cycle); //Format LCD screen
-    
-    // Prints out the time in seconds, and the cycle number (always on line 2)
-    lcd.selectLine(2);
-    lcd.print(buff);
-    lcd.print(int(setTemp));
-    lcd.print(" ");
-    lcd.print(temp);
-    
-    // Print to serial monitor as well
-    Serial.println();
-    Serial.print(buff);
-    Serial.print(int(setTemp));
-    
-    Serial.print(" ");
-    
-    Serial.print(temp1);
-    Serial.print("  ");
-    Serial.print(temp2); 
-    Serial.print("   ");
-    Serial.print(Output);  
+  char buff[17];
+
+  // buffered charString that contains data printed to LCD
+  sprintf(buff, "%3.d ", calcTimeRemaining());
+
+  // Prints out time remaining in minutes and current averaged temp (always on line 2)
+  lcd.selectLine(2);
+  lcd.print(buff);
+  lcd.print("     ");
+  lcd.print(temp);
+
+  // Print to serial monitor as well
+  // Appearance:  ## ##.## ##.## ##.##
+  Serial.println();
+  Serial.println();
+  Serial.print(buff);
+  Serial.print("   ");
+  Serial.print(int(setTemp));
+
+  Serial.print("   ");
+
+  Serial.print(temp1);
+  Serial.print("      ");
+  Serial.print(temp2); 
+  Serial.print("     "); 
+  Serial.print(Output);
+  Serial.print("     ");
+  Serial.print(calcTimeRemaining());  
 }
 
+// Control temperature by calculating PID and turning fan on or off.
 void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, double settemp)
 {
+  // Read temperatures into global variables
   readTemps();
-  if (fan_on && temp>settemp+1) //Turn fan on if temp needs to be lowered, else fan is off
+
+  // if temp too high, turn fan on to cool.  else, turn fan off.
+  // NOTE:  fan_on is a stupid variable that is always 1 when this function is called
+  if (fan_on && temp>settemp+1)
   {
+    // turn fan on
     digitalWrite(fan, HIGH);
-  } else digitalWrite(fan, LOW);
-  
-  //display to serial monitor
+  } 
+  else  digitalWrite(fan, LOW);
+
+  // Send temperature to PID controller for predictive contrl
   Input = temp;
-  
-  myPID.Compute(); //Compute optimal heater voltage level with PID controller
-  /*
-  if(Output < 10){
-    digitalWrite(fan, HIGH);
-    Output = 0;
-  }*/
-  
-  //analogWrite(heater, (settemp-temp1)*3);
-  
-  analogWrite(heater, Output); //Set heater to PID-specified output
+
+  // Compute next PID step
+  myPID.Compute();
+
+  // Control heater based upon PID compute
+  analogWrite(heater, Output);
 }
+
+// return time remaining on this PCR recipe
+// return: time remaining in minutes, int
+int calcTimeRemaining() {
+  // total process time in seconds, excluding ramp times
+  int totTime = INIT_TIME + (NUMBER_OF_CYCLES * (DENAT_TIME + ANNL_TIME + EXT_TIME)) + (FIN_TIME + HLD_TIME);
+
+  // "fudge factor" for ramp times, etc.; needs to be more elegant later
+  int fudgeFactor = totTime*.07;
+
+  // Calculate final time
+  int totalTime = totTime + fudgeFactor;
+
+  // returns time remaining in minutes as an integer
+  return (totalTime - (millis()/1000))/60;
+}
+
+
 
