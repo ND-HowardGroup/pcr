@@ -5,9 +5,10 @@
  Authors:  Chris Templeman
  Matt Brittan
  Alex Toombs
- Elizabeth Hunschke    
+ Elizabeth Hunschke
+ Frank Kuhny    
  
- Date Last Modified:  3/19/2013
+ Date Last Modified:  5/19/13
  
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -100,7 +101,7 @@ int cycle = 0; //"global" because used by serial print
 // heater, fan, and buzzer pins
 const int heater = 3;
 const int fan = 5;
-//const int buzzer = *********************
+const int buzzer = A3;
 
 // temperature for heater 1
 double temp1 = 0;
@@ -144,6 +145,7 @@ void setup()
   lcd.print("Load vials");
   lcd.selectLine(2);
   lcd.print("Hit 1 to start");
+
   // wait until any key is pressed.
   keypad.waitForKey();
 
@@ -195,11 +197,11 @@ void loop()
   lcd.print("Hit Key For End");
 
   // play annoying buzzer until they hit a key to alert for vial removal     
-  //digitalWrite(buzzer, HIGH);
+  digitalWrite(buzzer, HIGH);
 
-  // buzzer should plan until a key is pressed
+  // buzzer should play until a key is pressed
   keypad.waitForKey();
-  //digitalWrite(buzzer, LOW);
+  digitalWrite(buzzer, LOW);
 
   lcd.clear();
 
@@ -227,6 +229,7 @@ void recipeChoice() {
   delay(2000);
   lcd.clear();
   lcd.clear();
+
   lcd.selectLine(1);
   lcd.print("Enter choice:");
   lcd.selectLine(2);
@@ -288,8 +291,8 @@ void recipeChoice() {
     ANNEAL = 25;
     EXTENSION = 27;
     FINAL_ELONGATION = 27;
-    HOLDT = 12;
-    NUMBER_OF_CYCLES = 5;
+    HOLDT = 23;
+    NUMBER_OF_CYCLES = 3;
 
     // Change timing, set in seconds
     INIT_TIME = 10;
