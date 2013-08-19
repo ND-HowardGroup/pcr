@@ -186,6 +186,10 @@ void loop()
 
   // Final 
   settemperature(FINAL_ELONGATION, FIN_TIME);
+
+  // play annoying buzzer, when final elongation is done, until key is pressed    
+  digitalWrite(buzzer, HIGH);
+
   // Hold at HOLD_TEMPERATURE for a long time
   settemperature(HOLDT, HLD_TIME);
 
@@ -195,9 +199,6 @@ void loop()
   lcd.print("REMOVE VIALS!");
   lcd.selectLine(2);
   lcd.print("Hit Key For End");
-
-  // play annoying buzzer until they hit a key to alert for vial removal     
-  digitalWrite(buzzer, HIGH);
 
   // buzzer should play until a key is pressed
   keypad.waitForKey();
