@@ -60,24 +60,24 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
 // PCR Temperatures in C, to be set by recipe or user with keypad
 // Presets set in recipeChoice function
-double INITIALIZATION;
-double DENATURATION;
-double ANNEAL;
-double EXTENSION;
-double FINAL_ELONGATION;
-double HOLDT;
+double INITIALIZATION = 95;
+double DENATURATION = 95;
+double ANNEAL = 55;
+double EXTENSION = 72;
+double FINAL_ELONGATION = 72;
+double HOLDT = 10;
 
 // Number of cycles, input in recipeChoice
-int NUMBER_OF_CYCLES;
+int NUMBER_OF_CYCLES = 35;
 
 // PCR cycle times, corresponding to above double temps.
 // Set in recipeChoice function.
-double INIT_TIME;
-double DENAT_TIME;
-double ANNL_TIME;
-double EXT_TIME;
-double FIN_TIME;
-double HLD_TIME;
+double INIT_TIME = 30;
+double DENAT_TIME = 30;
+double ANNL_TIME = 60;
+double EXT_TIME = 60;
+double FIN_TIME = 300;
+double HLD_TIME = 20;
 
 // Definie the serial LCD object and communication pin
 const int pin = 19;
@@ -186,10 +186,6 @@ void loop()
 
   // Final 
   settemperature(FINAL_ELONGATION, FIN_TIME);
-
-  // play annoying buzzer, when final elongation is done, until key is pressed    
-  digitalWrite(buzzer, HIGH);
-
   // Hold at HOLD_TEMPERATURE for a long time
   settemperature(HOLDT, HLD_TIME);
 
@@ -199,6 +195,9 @@ void loop()
   lcd.print("REMOVE VIALS!");
   lcd.selectLine(2);
   lcd.print("Hit Key For End");
+
+  // play annoying buzzer until they hit a key to alert for vial removal     
+  digitalWrite(buzzer, HIGH);
 
   // buzzer should play until a key is pressed
   keypad.waitForKey();
