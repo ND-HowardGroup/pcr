@@ -65,7 +65,7 @@ double DENATURATION = 95;
 double ANNEAL = 55;
 double EXTENSION = 72;
 double FINAL_ELONGATION = 72;
-double HOLDT = 9;
+double HOLDT = 10;
 
 // Number of cycles, input in recipeChoice
 int NUMBER_OF_CYCLES = 35;
