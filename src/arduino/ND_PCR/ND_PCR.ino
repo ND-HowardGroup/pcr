@@ -7,8 +7,9 @@
  Alex Toombs
  Elizabeth Hunschke
  Frank Kuhny    
+ Romeo Kwihangana
  
- Date Last Modified:  5/19/13
+ Date Last Modified:  07/24/2014
  
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
@@ -23,6 +24,12 @@
  You should have received a copy of the GNU General Public License
  along with this program.  
  If not, see <http://www.gnu.org/licenses/>.
+ 
+ #Change Log
+	- changed fudgefactor in calcTimeRemaining() function making it more accurate
+	- added cycle # to output to serial
+	- added rise and fall time to calcTimeRemaining for more accuracy
+	
  */
 
 #include <PID_v1.h>
@@ -60,26 +67,29 @@ Keypad keypad = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 
 // PCR Temperatures in C, to be set by recipe or user with keypad
 // Presets set in recipeChoice function
-double INITIALIZATION = 95;
-double DENATURATION = 95;
-double ANNEAL = 55;
-double EXTENSION = 72;
-double FINAL_ELONGATION = 72;
-double HOLDT = 10;
+double INITIALIZATION = 96; //94 is MTWASP original + 4 to adjust for offset
+double DENATURATION = 96;  //94 in MTWASP
+double ANNEAL = 50;  //50 in MTWASP
+double EXTENSION = 72;  //72
+double FINAL_ELONGATION = 72;  //72
+double HOLDT = 25;
 
 // Number of cycles, input in recipeChoice
 int NUMBER_OF_CYCLES = 35;
 
 // PCR cycle times, corresponding to above double temps.
 // Set in recipeChoice function.
-double INIT_TIME = 30;
-double DENAT_TIME = 30;
-double ANNL_TIME = 60;
-double EXT_TIME = 60;
-double FIN_TIME = 300;
-double HLD_TIME = 20;
+double INIT_TIME = 600;
+double DENAT_TIME = 20;
+double ANNL_TIME = 20;
+double EXT_TIME = 30;
+double FIN_TIME = 30;
+double HLD_TIME = 120;
+double RISEFALL_TIME = 150; // averaged rise and fall time computed from experiments
+							// average length of cycle is 260s RISEFALL_TIME is the 
+							// difference of average cycle length and given time
 
-// Definie the serial LCD object and communication pin
+// Define the serial LCD object and communication pin
 const int pin = 19;
 serLCD lcd(pin);
 
@@ -241,13 +251,13 @@ void recipeChoice() {
   // Sets recipes, can be 0-9, # and * as chars (up to 12 recipes stored)
   if(c2 == '1') {
     // Edit these fields to change recipe
-    INITIALIZATION = 95;
-    DENATURATION = 95;
-    ANNEAL = 55;
-    EXTENSION = 72;
-    FINAL_ELONGATION = 72;
-    HOLDT = 10;
-    NUMBER_OF_CYCLES = 35;
+    INITIALIZATION = 95; //95
+    DENATURATION = 95;   //95
+    ANNEAL = 55;         //55
+    EXTENSION = 72;      //72
+    FINAL_ELONGATION = 72;  //72
+    HOLDT = 10;      //10
+    NUMBER_OF_CYCLES = 35;  //35
 
     // Change timing, set in seconds
     INIT_TIME = 30;
@@ -357,7 +367,7 @@ void settemperature(double settemp, long settime)
   }
 }
 
-// read temperatures from digital temperature sensors on aluminum block
+// read temperatures from digital temperature sensors on aluminium block
 void readTemps() 
 { 
   double r1, r2;
@@ -368,9 +378,9 @@ void readTemps()
   sensorValue2 = analogRead(A7);
 
   //convert all thermistors from "counts" voltage to C
-  r1 = 1000.0/((1023.0/sensorValue1) - 1);
+  r1 = 10.0e3/((1023.0/sensorValue1) - 1);
   temp1 = 3560.0/log(r1/0.0130444106) - 273.15;
-  r2 = 1000.0/((1023.0/sensorValue2) - 1);
+  r2 = 10.0e3/((1023.0/sensorValue2) - 1);
   temp2 = 3560.0/log(r2/0.0130444106) - 273.15;
 
   // Average temperatures of two sensors to control fan and PID
@@ -397,6 +407,8 @@ void printData(double setTemp, int timer)
   Serial.println();
   Serial.println();
   Serial.print(buff);
+  Serial.print("   ");
+  Serial.print(cycle);
   Serial.print("   ");
   Serial.print(int(setTemp));
 
@@ -426,7 +438,7 @@ void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, d
   } 
   else  digitalWrite(fan, LOW);
 
-  // Send temperature to PID controller for predictive contrl
+  // Send temperature to PID controller for predictive control
   Input = temp;
 
   // Compute next PID step
@@ -440,10 +452,11 @@ void controltemp(boolean fan_on, unsigned long timerinit, unsigned long timer, d
 // return: time remaining in minutes, int
 int calcTimeRemaining() {
   // total process time in seconds, excluding ramp times
-  int totTime = INIT_TIME + (NUMBER_OF_CYCLES * (DENAT_TIME + ANNL_TIME + EXT_TIME)) + (FIN_TIME + HLD_TIME);
+  int totTime = INIT_TIME + (NUMBER_OF_CYCLES * (DENAT_TIME + ANNL_TIME + EXT_TIME + RISEFALL_TIME)) + (FIN_TIME + HLD_TIME);
 
   // "fudge factor" for ramp times, etc.; needs to be more elegant later
-  int fudgeFactor = totTime*.07;
+  int fudgeFactor = totTime*0.02; //old percentage = 0.07
+								  // kept it just in case the time is still not enough
 
   // Calculate final time
   int totalTime = totTime + fudgeFactor;
@@ -451,6 +464,3 @@ int calcTimeRemaining() {
   // returns time remaining in minutes as an integer
   return (totalTime - (millis()/1000))/60;
 }
-
-
-
