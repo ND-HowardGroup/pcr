@@ -1,0 +1,4 @@
+TODO list (Last modified: 12/16/2014)
+
+1. Enhance bill of materials with mfg part number and datasheet links.
+2. Take a photograph of the main and daughter board and annotate them.

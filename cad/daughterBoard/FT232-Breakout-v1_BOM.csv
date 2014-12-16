@@ -1,0 +1,16 @@
+"Part";"Value";"Device";"Package";"Description";"";
+"C1";"0.1uF";".22UF-CER";"0402-CAP";".22uF ceramic SMT";"";
+"C2";"10nF";".22UF-CER";"0402-CAP";".22uF ceramic SMT";"";
+"C3";"0.1nF";".22UF-CER";"0402-CAP";".22uF ceramic SMT";"";
+"C4";"10uF";"10UF-TANT";"EIA3216";"10uF Tantalum SMT";"";
+"JP1";"USB-B";"USBPTH";"USB-B-PTH";"USB Connectors";"";
+"JP2";"TXLED";"M02LOCK";"1X02_LOCK";"Standard 2-pin 0.1" header. Use with";"";
+"JP3";"RXLED";"M02LOCK";"1X02_LOCK";"Standard 2-pin 0.1" header. Use with";"";
+"JP4";"Buzzer";"M02LOCK";"1X02_LOCK";"Standard 2-pin 0.1" header. Use with";"";
+"JP5";"";"M05LOCK";"1X05_LOCK";"Header 5";"";
+"L1";"";"INDUCTOR0603";"0603";"Inductors";"";
+"R2";"270";"RESISTORPTH-1/2W";"AXIAL-0.5";"Resistor";"";
+"R3";"270";"RESISTORPTH-1/2W";"AXIAL-0.5";"Resistor";"";
+"R4";"";"RESISTORPTH-1/2W";"AXIAL-0.5";"Resistor";"";
+"T1";"BC547";"BC547";"TO92";"NPN TRANSISTOR";"";
+"U1";"FT232RL-BASICSSOP";"FT232RL-BASICSSOP";"SSOP28DB";"USB UART";"";
