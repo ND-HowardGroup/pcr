@@ -1,4 +1,0 @@
-TODO list (Last modified: 12/16/2014)
-
-1. Resolve the difference about PID.ResetITerm() fucntion from PPCR code (PID_v1.cpp).
-2.

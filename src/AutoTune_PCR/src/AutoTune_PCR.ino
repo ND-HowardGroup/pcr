@@ -7,15 +7,15 @@
 #include <math.h>
 
 byte ATuneModeRemember=2;
-double input=25, output=255, setpoint=90;
+double input=25, output=255, setpoint=73;
 //double kp=5.11,ki=.5,kd=0; //at 50 C
 //double kp=6.25,ki=.15,kd=0; //at 100 C
 //double kp=22.19,ki=.4,kd=0; //at 50 C new box
 double kp=26.49,ki=.68,kd=0; //at 50 C new box and fan
 
 double kpmodel=1.5, taup=100, theta[50];
-double outputStart=5;
-double aTuneStep=127, aTuneNoise=1, aTuneStartValue=128;
+double outputStart=128;
+double aTuneStep=127, aTuneNoise = 5, aTuneStartValue=128;
 unsigned int aTuneLookBack=20;
 
 boolean tuning = true;
@@ -31,6 +31,8 @@ boolean useSimulation = false;
 
 const int heater=3;
 const int fan = 5;
+const int fan2 = 2;
+const int buzzer = A3;
 
 //Initialize temperatures
 double temp1 = 0;
@@ -41,26 +43,26 @@ void setup()
 {
   pinMode(heater, OUTPUT);
   pinMode(fan, OUTPUT);
+  pinMode(fan2, OUTPUT);
+  pinMode(buzzer, OUTPUT);
 
-  aTune.SetControlType(1);//set for PID extraction instead of PI
-  if(useSimulation)
+  aTune.SetControlType(0);	// 0 for PI tuning. 1 for PID tuning
+  if (useSimulation)
   {
-    for(byte i=0;i<50;i++)
-    {
+    for (byte i=0;i<50;i++) {
       theta[i]=outputStart;
     }
     modelTime = 0;
   }
-  //Setup the pid 
+  //Setup the pid
   myPID.SetMode(AUTOMATIC);
 
-  if(tuning)
-  {
+  if (tuning) {
     tuning=false;
     changeAutoTune();
     tuning=true;
   }
-  
+
   serialTime = 0;
   Serial.begin(9600);
 
@@ -69,13 +71,20 @@ void setup()
 
     readTemps();
     digitalWrite(heater,HIGH);
-    
-    while(temp<setpoint){
-      readTemps();
-      Serial.print(temp);Serial.println();
+
+   while(temp < setpoint){
+      if (millis() > serialTime)
+      {
+        readTemps();
+        serialTime += 500;
+        Serial.print(millis() * 1e-3);
+        Serial.print("\t");
+        Serial.print("setpoint: ");Serial.print(setpoint); Serial.print(" ");
+        Serial.print("input: ");Serial.print(temp); Serial.print(" ");
+        Serial.print("output: ");Serial.print(output); Serial.println();
+      }
     }
     digitalWrite(heater,LOW);
-    
   }
 }
 
@@ -88,16 +97,14 @@ void loop()
     readTemps();
     input=temp;
   }
-  
-  if(tuning)
-  {
-    byte val = (aTune.Runtime());
-    if (val!=0)
-    {
+
+  if(tuning) {
+    if (aTune.Runtime() != 0) {
       tuning = false;
     }
     if(!tuning)
     { //we're done, set the tuning parameters
+      digitalWrite(buzzer, HIGH);
       kp = aTune.GetKp();
       ki = aTune.GetKi();
       kd = aTune.GetKd();
@@ -105,14 +112,24 @@ void loop()
       AutoTuneHelper(false);
     }
   }
-  else myPID.Compute();
-  
+  else {
+      myPID.Compute();
+      if (temp > setpoint+1) {
+        digitalWrite(fan, HIGH);
+        digitalWrite(fan2, HIGH);
+      }
+      else  {
+          digitalWrite(fan, LOW);
+          digitalWrite(fan2, LOW);
+      }
+  }
+
   if(useSimulation)
   {
     theta[30]=output;
     if(now>=modelTime)
     {
-      modelTime +=100; 
+      modelTime +=100;
       DoModel();
     }
   }
@@ -129,18 +146,25 @@ void loop()
 //       //Serial.print("fan ");Serial.print((127-output)*2);Serial.println();
 //     }
 
-     analogWrite(heater,output);
-     if(input>setpoint+1){
-       digitalWrite(fan,HIGH);
-     } else digitalWrite(fan,LOW);
+    analogWrite(heater,output);
+    if (aTune.Runtime() == 0) {   // if still tuning
+        if (output == 1) {
+            digitalWrite(fan, HIGH);
+            digitalWrite(fan2, HIGH);
+        }
+        else {
+            digitalWrite(fan, LOW);
+            digitalWrite(fan2, LOW);
+        }
+    }
   }
-  
+
   //send-receive with processing if it's time
-  if(millis()>serialTime)
+  if (millis() > serialTime)
   {
     SerialReceive();
     SerialSend();
-    serialTime+=500;
+    serialTime += 500;
   }
 }
 
@@ -152,7 +176,7 @@ void changeAutoTune()
     output=aTuneStartValue;
     aTune.SetNoiseBand(aTuneNoise);
     aTune.SetOutputStep(aTuneStep);
-    aTune.SetControlType(1);//set for PID extraction instead of PI
+    aTune.SetControlType(1);    // 0 for PI tuning. 1 for PID tuning
     aTune.SetLookbackSec((int)aTuneLookBack);
     AutoTuneHelper(true);
     tuning = true;
@@ -174,14 +198,16 @@ void AutoTuneHelper(boolean start)
 }
 
 
-void SerialSend()
-{
+void SerialSend() {
+  Serial.print(millis() * 1e-3);
+  Serial.print("\t");
   Serial.print("setpoint: ");Serial.print(setpoint); Serial.print(" ");
   Serial.print("input: ");Serial.print(input); Serial.print(" ");
   Serial.print("output: ");Serial.print(output); Serial.print(" ");
   if(tuning){
     Serial.println("tuning mode");
-  } else {
+  }
+  else {
     Serial.print("kp: ");Serial.print(myPID.GetKp());Serial.print(" ");
     Serial.print("ki: ");Serial.print(myPID.GetKi());Serial.print(" ");
     Serial.print("kd: ");Serial.print(myPID.GetKd());Serial.println();
@@ -192,8 +218,8 @@ void SerialReceive()
 {
   if(Serial.available())
   {
-   char b = Serial.read(); 
-   Serial.flush(); 
+   char b = Serial.read();
+   Serial.flush();
    if((b=='1' && !tuning) || (b!='1' && tuning))changeAutoTune();
   }
 }
@@ -210,22 +236,24 @@ void DoModel()
 
 }
 
-void readTemps() 
-{ 
+void readTemps()
+{
   int sensorValue1, sensorValue2;
   double r1, r2;
-  
+
   //read voltage of sensors (voltage across thermistors)- gives a count value from 0-1023 representing 0-5 V
   sensorValue1 = analogRead(A0);
   delay(1); //delay to prevent excess ringing, from datasheet
   sensorValue2 = analogRead(A7);
-  
+
   //Calculate resistance of thermistor based on measured voltage in "counts"- equation from layout of voltage divider
   r1 = 1000.0/((1023.0/sensorValue1) - 1);
   r2 = 1000.0/((1023.0/sensorValue2) - 1);
-  
+
   //Calculte temperatures in degrees C- standard thermistor equation with values from thermistor datasheet
   temp1 = 3560.0/log(r1/0.0130444106) - 273.15;
   temp2 = 3560.0/log(r2/0.0130444106) - 273.15;
   temp = (temp1+temp2)/2.0;
 }
+
+
