@@ -1,10 +1,19 @@
-- update schematic for lower R resistors
-- tune PID control
-- add 3rd party arduino library links
-- make schematics for tube holders
-- bill of parts
-- serial LCD/parallel LCD options
-- document building of device
-- test
-- Welcome Frank to the lab
+# Last updated: 22 April, 2015
+# Last author : Aamir Khan
 
+* Update schematic for lower R resistors
+* Add 3rd party arduino library links
+* Bill of parts
+* Serial LCD/parallel LCD options
+* Document building of device
+* Resolve the difference about PID.ResetITerm() fucntion from PPCR code (PID_v1.cpp). [decided on 12/16/2014]
+
+
+
+# Build and Burn commands
+ino build
+avrdude -V -c usbtiny -p m328p -U .build/nano328/firmware.hex
+ino build && avrdude -V -c usbtiny -p m328p -U .build/nano328/firmware.hex
+
+# Serial logging commands
+picocom /dev/ttyUSB0 | tee logFiles/log_16Apr2015_heater3.4Ohm_73pm10.txt

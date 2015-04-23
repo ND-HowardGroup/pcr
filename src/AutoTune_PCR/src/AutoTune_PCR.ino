@@ -1,35 +1,43 @@
-//program to autotune the pcr. Set the "setpoint" variable
-//and read the optimized PID from the serial port
-//use "SetControlType" to 0 for PI or 1 for PID (in changeAutoTune)
+// program to autotune the pcr. Set the "setpoint" variable
+// and read the optimized PID from the serial port
+// use "SetControlType" to 0 for PI or 1 for PID (in changeAutoTune)
 
 #include <PID_v1.h>
 #include <PID_AutoTune_v0.h>
 #include <math.h>
 
-byte ATuneModeRemember=2;
-double input=25, output=255, setpoint=73;
-//double kp=5.11,ki=.5,kd=0; //at 50 C
-//double kp=6.25,ki=.15,kd=0; //at 100 C
-//double kp=22.19,ki=.4,kd=0; //at 50 C new box
-double kp=26.49,ki=.68,kd=0; //at 50 C new box and fan
+byte ATuneModeRemember = 2;
+double input = 25;
+double output = 255;
+double kp = 26.49;  // at 50 C new box and fan
+double ki = 0.68;
+double kd = 0;
 
-double kpmodel=1.5, taup=100, theta[50];
-double outputStart=128;
-double aTuneStep=127, aTuneNoise = 5, aTuneStartValue=128;
-unsigned int aTuneLookBack=20;
+double kpmodel = 1.5;
+double taup = 100;
+double theta[50];
+
+double setpoint = 70;
+double aTuneNoise = 5;
+
+double aTuneStartValue = 128;
+double outputStart = 128;
+double aTuneStep = 50;
+unsigned int aTuneLookBack = 20;
 
 boolean tuning = true;
-unsigned long  modelTime, serialTime;
+unsigned long modelTime;
+unsigned long serialTime;
 
 void readTemps(); // Reads voltages from thermistor/resistor voltage dividers and calculates temperatures
-PID myPID(&input, &output, &setpoint,kp,ki,kd, DIRECT);
+PID myPID(&input, &output, &setpoint, kp, ki, kd, DIRECT);
 PID_ATune aTune(&input, &output);
 
 
 //set to false to connect to the real world
 boolean useSimulation = false;
 
-const int heater=3;
+const int heater = 3;
 const int fan = 5;
 const int fan2 = 2;
 const int buzzer = A3;
@@ -39,116 +47,74 @@ double temp1 = 0;
 double temp2 = 0;
 double temp = 0;
 
-void setup()
-{
-  pinMode(heater, OUTPUT);
-  pinMode(fan, OUTPUT);
-  pinMode(fan2, OUTPUT);
-  pinMode(buzzer, OUTPUT);
+void setup() {
+    pinMode(heater, OUTPUT);
+    pinMode(fan, OUTPUT);
+    pinMode(fan2, OUTPUT);
+    pinMode(buzzer, OUTPUT);
 
-  aTune.SetControlType(0);	// 0 for PI tuning. 1 for PID tuning
-  if (useSimulation)
-  {
-    for (byte i=0;i<50;i++) {
-      theta[i]=outputStart;
+    aTune.SetControlType(0);  // 0 for PI tuning. 1 for PID tuning
+    if (useSimulation) {
+        for (byte i = 0; i < 50; i++)
+            theta[i] = outputStart;
+        modelTime = 0;
     }
-    modelTime = 0;
-  }
-  //Setup the pid
-  myPID.SetMode(AUTOMATIC);
 
-  if (tuning) {
-    tuning=false;
-    changeAutoTune();
-    tuning=true;
-  }
+    // Setup the pid
+    myPID.SetMode(AUTOMATIC);
 
-  serialTime = 0;
-  Serial.begin(9600);
+    if (tuning) {
+        tuning = false;
+        changeAutoTune();
+        tuning = true;
+    }
 
-  if(!useSimulation)
-  { //pull the input in from the real world
+    serialTime = 0;
+    Serial.begin(9600);
 
-    readTemps();
-    digitalWrite(heater,HIGH);
-
-   while(temp < setpoint){
-      if (millis() > serialTime)
-      {
+    if (!useSimulation) { //pull the input in from the real world
         readTemps();
-        serialTime += 500;
-        Serial.print(millis() * 1e-3);
-        Serial.print("\t");
-        Serial.print("setpoint: ");Serial.print(setpoint); Serial.print(" ");
-        Serial.print("input: ");Serial.print(temp); Serial.print(" ");
-        Serial.print("output: ");Serial.print(output); Serial.println();
-      }
+        digitalWrite(heater,HIGH);
+        while(temp < setpoint) {
+            if (millis() > serialTime)
+            {
+                readTemps();
+                serialTime += 500;
+                Serial.print(millis() * 1e-3);
+                Serial.print("\t");
+                Serial.print("setpoint: "); Serial.print(setpoint); Serial.print(" ");
+                Serial.print("input: ");    Serial.print(temp);     Serial.print(" ");
+                Serial.print("output: ");   Serial.print(output);   Serial.println();
+            }
+        }
+        digitalWrite(heater,LOW);
     }
-    digitalWrite(heater,LOW);
-  }
 }
 
-void loop()
-{
-  unsigned long now = millis();
+void loop() {
+    unsigned long now = millis();
 
-  if(!useSimulation)
-  { //pull the input in from the real world
-    readTemps();
-    input=temp;
-  }
-
-  if(tuning) {
-    if (aTune.Runtime() != 0) {
-      tuning = false;
+    if (!useSimulation) { //pull the input in from the real world
+        readTemps();
+        input=temp;
     }
-    if(!tuning)
-    { //we're done, set the tuning parameters
-      digitalWrite(buzzer, HIGH);
-      kp = aTune.GetKp();
-      ki = aTune.GetKi();
-      kd = aTune.GetKd();
-      myPID.SetTunings(kp,ki,kd);
-      AutoTuneHelper(false);
-    }
-  }
-  else {
-      myPID.Compute();
-      if (temp > setpoint+1) {
-        digitalWrite(fan, HIGH);
-        digitalWrite(fan2, HIGH);
-      }
-      else  {
-          digitalWrite(fan, LOW);
-          digitalWrite(fan2, LOW);
-      }
-  }
 
-  if(useSimulation)
-  {
-    theta[30]=output;
-    if(now>=modelTime)
-    {
-      modelTime +=100;
-      DoModel();
+    if (tuning) {
+        if (aTune.Runtime() != 0) {
+          tuning = false;
+        }
+        if (!tuning) { // we're done, set the tuning parameters
+            tone(buzzer, 2400, 9000);
+            kp = aTune.GetKp();
+            ki = aTune.GetKi();
+            kd = aTune.GetKd();
+            myPID.SetTunings(kp,ki,kd);
+            AutoTuneHelper(false);
+        }
     }
-  }
-  else
-  {
-//     if(output>=128){
-//       digitalWrite(fan,LOW);
-//       analogWrite(heater,(output-128)*2);
-//       //Serial.print("heater ");Serial.print((output-128)*2);Serial.println();
-//     }
-//     if(output<=127){
-//       digitalWrite(heater,LOW);
-//       analogWrite(fan,(127-output)*2);
-//       //Serial.print("fan ");Serial.print((127-output)*2);Serial.println();
-//     }
-
-    analogWrite(heater,output);
-    if (aTune.Runtime() == 0) {   // if still tuning
-        if (output == 1) {
+    else {
+        myPID.Compute();
+        if (temp > setpoint) {
             digitalWrite(fan, HIGH);
             digitalWrite(fan2, HIGH);
         }
@@ -157,77 +123,105 @@ void loop()
             digitalWrite(fan2, LOW);
         }
     }
-  }
 
-  //send-receive with processing if it's time
-  if (millis() > serialTime)
-  {
-    SerialReceive();
-    SerialSend();
-    serialTime += 500;
-  }
+    if (useSimulation) {
+        theta[30]=output;
+        if (now >= modelTime)
+        {
+            modelTime += 100;
+            DoModel();
+        }
+    }
+    else {
+    //     if (output>=128){
+    //       digitalWrite(fan,LOW);
+    //       analogWrite(heater,(output-128)*2);
+    //       //Serial.print("heater ");Serial.print((output-128)*2);Serial.println();
+    //     }
+    //     if (output<=127){
+    //       digitalWrite(heater,LOW);
+    //       analogWrite(fan,(127-output)*2);
+    //       //Serial.print("fan ");Serial.print((127-output)*2);Serial.println();
+    //     }
+        analogWrite(heater,output);
+        if (aTune.Runtime() == 0) {   // if still tuning
+            // if (temp > setpoint) {
+            // if (output == 1) {
+            if (output < outputStart) {
+                digitalWrite(fan, HIGH);
+                digitalWrite(fan2, HIGH);
+            }
+            else {
+                digitalWrite(fan, LOW);
+                digitalWrite(fan2, LOW);
+            }
+        }
+    }
+
+    //send-receive with processing if it's time
+    if (millis() > serialTime) {
+        SerialReceive();
+        SerialSend();
+        serialTime += 500;
+    }
 }
 
-void changeAutoTune()
-{
- if(!tuning)
-  {
-    //Set the output to the desired starting frequency.
-    output=aTuneStartValue;
-    aTune.SetNoiseBand(aTuneNoise);
-    aTune.SetOutputStep(aTuneStep);
-    aTune.SetControlType(1);    // 0 for PI tuning. 1 for PID tuning
-    aTune.SetLookbackSec((int)aTuneLookBack);
-    AutoTuneHelper(true);
-    tuning = true;
-  }
-  else
-  { //cancel autotune
-    aTune.Cancel();
-    tuning = false;
-    AutoTuneHelper(false);
-  }
+void changeAutoTune() {
+    if (!tuning) { //Set the output to the desired starting frequency.
+        output=aTuneStartValue;
+        aTune.SetNoiseBand(aTuneNoise);
+        aTune.SetOutputStep(aTuneStep);
+        aTune.SetControlType(1);    // 0 for PI tuning. 1 for PID tuning
+        aTune.SetLookbackSec((int)aTuneLookBack);
+        AutoTuneHelper(true);
+        tuning = true;
+    }
+    else { //cancel autotune
+        aTune.Cancel();
+        tuning = false;
+        AutoTuneHelper(false);
+    }
 }
 
 void AutoTuneHelper(boolean start)
 {
-  if(start)
-    ATuneModeRemember = myPID.GetMode();
-  else
-    myPID.SetMode(ATuneModeRemember);
+    if (start)
+        ATuneModeRemember = myPID.GetMode();
+    else
+        myPID.SetMode(ATuneModeRemember);
 }
 
 
 void SerialSend() {
-  Serial.print(millis() * 1e-3);
-  Serial.print("\t");
-  Serial.print("setpoint: ");Serial.print(setpoint); Serial.print(" ");
-  Serial.print("input: ");Serial.print(input); Serial.print(" ");
-  Serial.print("output: ");Serial.print(output); Serial.print(" ");
-  if(tuning){
-    Serial.println("tuning mode");
-  }
-  else {
-    Serial.print("kp: ");Serial.print(myPID.GetKp());Serial.print(" ");
-    Serial.print("ki: ");Serial.print(myPID.GetKi());Serial.print(" ");
-    Serial.print("kd: ");Serial.print(myPID.GetKd());Serial.println();
-  }
+    Serial.print(millis() * 1e-3);
+    Serial.print("\t");
+    Serial.print("setpoint: "); Serial.print(setpoint); Serial.print(" ");
+    Serial.print("input: ");    Serial.print(input);    Serial.print(" ");
+    Serial.print("output: ");   Serial.print(output);   Serial.print(" ");
+    if (tuning){
+        Serial.println("tuning mode");
+    }
+    else {
+        Serial.print("kp: "); Serial.print(myPID.GetKp()); Serial.print(" ");
+        Serial.print("ki: "); Serial.print(myPID.GetKi()); Serial.print(" ");
+        Serial.print("kd: "); Serial.print(myPID.GetKd()); Serial.println();
+    }
 }
 
 void SerialReceive()
 {
-  if(Serial.available())
+  if (Serial.available())
   {
    char b = Serial.read();
    Serial.flush();
-   if((b=='1' && !tuning) || (b!='1' && tuning))changeAutoTune();
+   if ((b=='1' && !tuning) || (b!='1' && tuning))changeAutoTune();
   }
 }
 
 void DoModel()
 {
   //cycle the dead time
-  for(byte i=0;i<49;i++)
+  for (byte i=0;i<49;i++)
   {
     theta[i] = theta[i+1];
   }

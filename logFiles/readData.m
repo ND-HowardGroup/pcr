@@ -6,7 +6,7 @@ ax = cla;
 
 while(1)
     % system('tail -n +3 log.txt > tmp.txt');
-    system('tail -n +3 log2__22Apr2015.txt > tmp.txt');
+    system('tail -n +3 log_realRun_22Apr2015.txt > tmp.txt');
     filename = 'tmp.txt';
     A = importdata(filename);
     A(end,:)'
@@ -47,7 +47,7 @@ while(1)
     grid on;
 %     legend({'T_{avg}', 'T_{sp}', 'Heater%'}, 'location','southwest')
 
-%     break;
+    break;
 %     legend({'T_{block}', 'T_{avg}', 'T_{tube}'}, 'location','northwest')
     drawnow;
     pause(1);
