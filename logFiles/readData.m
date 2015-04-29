@@ -6,10 +6,10 @@ ax = cla;
 
 while(1)
     % system('tail -n +3 log.txt > tmp.txt');
-    system('tail -n +3 log_realRun_22Apr2015.txt > tmp.txt');
+    system('tail -n +3 log_PCRrun94C_29Apr2015.txt > tmp.txt');
     filename = 'tmp.txt';
     A = importdata(filename);
-    A(end,:)'
+    % A(end,:)'
 
     t = A(:,1)./60*60;
     timeRem = A(:,2)./60;
